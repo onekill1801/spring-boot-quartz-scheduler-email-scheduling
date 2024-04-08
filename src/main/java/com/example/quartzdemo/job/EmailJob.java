@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import javax.mail.MessagingException;
 import javax.mail.internet.MimeMessage;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 
 @Component
 public class EmailJob extends QuartzJobBean {
@@ -34,8 +35,9 @@ public class EmailJob extends QuartzJobBean {
         String subject = jobDataMap.getString("subject");
         String body = jobDataMap.getString("body");
         String recipientEmail = jobDataMap.getString("email");
+        logger.info("Send mail success!!!! time: {}" , Instant.now());
 
-        sendMail(mailProperties.getUsername(), recipientEmail, subject, body);
+//        sendMail(mailProperties.getUsername(), recipientEmail, subject, body);
     }
 
     private void sendMail(String fromEmail, String toEmail, String subject, String body) {
