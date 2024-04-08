@@ -7,12 +7,14 @@ import com.example.quartzdemo.trigger.CustomTrigger;
 import org.quartz.*;
 import org.quartz.impl.StdSchedulerFactory;
 import org.quartz.impl.calendar.*;
-import java.util.Calendar;
-import java.util.GregorianCalendar;
+
+import java.util.*;
 
 import org.quartz.impl.matchers.GroupMatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanWrapper;
+import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,8 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
 import java.time.ZonedDateTime;
-import java.util.Date;
-import java.util.UUID;
+import java.util.Calendar;
 
 @RestController
 public class EmailJobSchedulerController {
@@ -61,12 +62,27 @@ public class EmailJobSchedulerController {
         }
     }
 
-    private JobDetail buildJobDetail(ScheduleEmailRequest scheduleEmailRequest) {
+    private JobDetail buildJobDetail(Object scheduleEmailRequest) {
         JobDataMap jobDataMap = new JobDataMap();
 
-        jobDataMap.put("email", scheduleEmailRequest.getEmail());
-        jobDataMap.put("subject", scheduleEmailRequest.getSubject());
-        jobDataMap.put("body", scheduleEmailRequest.getBody());
+        String[] nonNull = getNullPropertyNames(scheduleEmailRequest);
+        BeanWrapper beanWrapper = new BeanWrapperImpl(scheduleEmailRequest);
+        BeanWrapper beanWrapperMap = new BeanWrapperImpl(scheduleEmailRequest);
+        for (String att : nonNull) {
+            beanWrapper.setPropertyValue(att, beanWrapperMap.getPropertyValue(att));
+            jobDataMap.put(att, beanWrapperMap.getPropertyValue(att));
+        }
+
+        try {
+            ScheduleEmailRequest emailRequest = convertJobDataMapObject(jobDataMap, ScheduleEmailRequest.class);
+            System.out.println("Done!");
+        } catch (IllegalAccessException | InstantiationException e) {
+            e.printStackTrace();
+        }
+
+//        jobDataMap.put("email", scheduleEmailRequest.getEmail());
+//        jobDataMap.put("subject", scheduleEmailRequest.getSubject());
+//        jobDataMap.put("body", scheduleEmailRequest.getBody());
 
         return JobBuilder.newJob(EmailJob.class)
                 .withIdentity(UUID.randomUUID().toString(), "email-jobs")
@@ -75,6 +91,30 @@ public class EmailJobSchedulerController {
                 .storeDurably()
                 .build();
     }
+
+    public static <T> T convertJobDataMapObject(JobDataMap jobDataMap,  Class<T> clazz) throws IllegalAccessException, InstantiationException {
+//        ScheduleEmailRequest object = new ScheduleEmailRequest();
+        T object = clazz.newInstance();
+        BeanWrapper beanWrapper = new BeanWrapperImpl(object);
+        for (Map.Entry<String, Object> entry : jobDataMap.entrySet()) {
+            beanWrapper.setPropertyValue(entry.getKey(), entry.getValue());
+        }
+        return object;
+    }
+
+    private String[] getNullPropertyNames(Object source) {
+        final BeanWrapper src = new BeanWrapperImpl(source);
+        java.beans.PropertyDescriptor[] pds = src.getPropertyDescriptors();
+
+        Set<String> emptyNames = new HashSet<>();
+        for (java.beans.PropertyDescriptor pd : pds) {
+            Object srcValue = src.getPropertyValue(pd.getName());
+            if (srcValue != null && !pd.getName().equals("class")) emptyNames.add(pd.getName());
+        }
+        String[] result = new String[emptyNames.size()];
+        return emptyNames.toArray(result);
+    }
+
 
     private Trigger buildJobTrigger(JobDetail jobDetail, ZonedDateTime startAt) {
         return TriggerBuilder.newTrigger()
@@ -98,8 +138,8 @@ public class EmailJobSchedulerController {
 
     @GetMapping("/scheduleEmail")
     public ResponseEntity<ScheduleEmailResponse> scheduleEmail() throws SchedulerException {
-        SchedulerFactory schedulerFactory = new StdSchedulerFactory();
-        Scheduler scheduler = schedulerFactory.getScheduler();
+//        SchedulerFactory schedulerFactory = new StdSchedulerFactory();
+//        Scheduler scheduler = schedulerFactory.getScheduler();
 
         // Define the job detail
         JobDetail jobDetail = JobBuilder.newJob(EmailJob.class)

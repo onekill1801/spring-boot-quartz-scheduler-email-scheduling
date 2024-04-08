@@ -1,10 +1,13 @@
 package com.example.quartzdemo.job;
 
+import com.example.quartzdemo.payload.ScheduleEmailRequest;
 import org.quartz.JobDataMap;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeanWrapper;
+import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.mail.MailProperties;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -16,6 +19,7 @@ import javax.mail.MessagingException;
 import javax.mail.internet.MimeMessage;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Map;
 
 @Component
 public class EmailJob extends QuartzJobBean {
@@ -38,6 +42,15 @@ public class EmailJob extends QuartzJobBean {
         logger.info("Send mail success!!!! time: {}" , Instant.now());
 
 //        sendMail(mailProperties.getUsername(), recipientEmail, subject, body);
+    }
+
+    public static Object convertJobDataMapObject(JobDataMap jobDataMap) {
+        Object object = new Object();
+        BeanWrapper beanWrapper = new BeanWrapperImpl(object);
+        for (Map.Entry<String, Object> entry : jobDataMap.entrySet()) {
+            beanWrapper.setPropertyValue(entry.getKey(), entry.getValue());
+        }
+        return object;
     }
 
     private void sendMail(String fromEmail, String toEmail, String subject, String body) {
