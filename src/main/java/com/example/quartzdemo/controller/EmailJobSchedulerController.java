@@ -5,11 +5,7 @@ import com.example.quartzdemo.payload.ScheduleEmailRequest;
 import com.example.quartzdemo.payload.ScheduleEmailResponse;
 import com.example.quartzdemo.trigger.CustomTrigger;
 import org.quartz.*;
-import org.quartz.impl.StdSchedulerFactory;
-import org.quartz.impl.calendar.*;
-
-import java.util.*;
-
+import org.quartz.impl.calendar.AnnualCalendar;
 import org.quartz.impl.matchers.GroupMatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.validation.Valid;
 import java.time.ZonedDateTime;
 import java.util.Calendar;
+import java.util.*;
 
 @RestController
 public class EmailJobSchedulerController {
@@ -34,15 +31,26 @@ public class EmailJobSchedulerController {
     @Autowired
     private Scheduler scheduler;
 
+    public static <T> T convertJobDataMapObject(JobDataMap jobDataMap, Class<T> clazz) throws IllegalAccessException, InstantiationException {
+//        ScheduleEmailRequest object = new ScheduleEmailRequest();
+        T object = clazz.newInstance();
+        BeanWrapper beanWrapper = new BeanWrapperImpl(object);
+        for (Map.Entry<String, Object> entry : jobDataMap.entrySet()) {
+            beanWrapper.setPropertyValue(entry.getKey(), entry.getValue());
+        }
+        return object;
+    }
+
     @PostMapping("/scheduleEmail")
-    public ResponseEntity<ScheduleEmailResponse> scheduleEmail(@Valid @RequestBody ScheduleEmailRequest scheduleEmailRequest) {
+    public ResponseEntity<?> scheduleEmail(@Valid @RequestBody ScheduleEmailRequest scheduleEmailRequest) {
+
         try {
             ZonedDateTime dateTime = ZonedDateTime.of(scheduleEmailRequest.getDateTime(), scheduleEmailRequest.getTimeZone());
-            if(dateTime.isBefore(ZonedDateTime.now())) {
-                ScheduleEmailResponse scheduleEmailResponse = new ScheduleEmailResponse(false,
-                        "dateTime must be after current time");
-                return ResponseEntity.badRequest().body(scheduleEmailResponse);
-            }
+//            if(dateTime.isBefore(ZonedDateTime.now())) {
+//                ScheduleEmailResponse scheduleEmailResponse = new ScheduleEmailResponse(false,
+//                        "dateTime must be after current time");
+//                return ResponseEntity.badRequest().body(scheduleEmailResponse);
+//            }
 
             JobDetail jobDetail = buildJobDetail(scheduleEmailRequest);
             Trigger trigger = buildJobTriggerCron(jobDetail, dateTime);
@@ -92,16 +100,6 @@ public class EmailJobSchedulerController {
                 .build();
     }
 
-    public static <T> T convertJobDataMapObject(JobDataMap jobDataMap,  Class<T> clazz) throws IllegalAccessException, InstantiationException {
-//        ScheduleEmailRequest object = new ScheduleEmailRequest();
-        T object = clazz.newInstance();
-        BeanWrapper beanWrapper = new BeanWrapperImpl(object);
-        for (Map.Entry<String, Object> entry : jobDataMap.entrySet()) {
-            beanWrapper.setPropertyValue(entry.getKey(), entry.getValue());
-        }
-        return object;
-    }
-
     private String[] getNullPropertyNames(Object source) {
         final BeanWrapper src = new BeanWrapperImpl(source);
         java.beans.PropertyDescriptor[] pds = src.getPropertyDescriptors();
@@ -143,11 +141,10 @@ public class EmailJobSchedulerController {
 
         // Define the job detail
         JobDetail jobDetail = JobBuilder.newJob(EmailJob.class)
-                .withIdentity("scheduleEmail", "scheduleEmail")
-                .storeDurably()
+                .withIdentity("26e75aca-0154-45a0-bc88-d66f5eecbf54", "email-jobs")
                 .build();
 
-        // Define the trigger
+//        // Define the trigger
         Trigger trigger = TriggerBuilder.newTrigger()
                 .forJob(jobDetail)
                 .withIdentity("scheduleEmail", "scheduleEmail")
@@ -156,9 +153,19 @@ public class EmailJobSchedulerController {
                         .withIntervalInSeconds(5)
                         .repeatForever())
                 .build();
+        Trigger trigger1 = TriggerBuilder.newTrigger()
+                .forJob(jobDetail)
+                .withIdentity(jobDetail.getKey().getName(), "email-triggers")
+                .withDescription("Send Email Trigger")
+                .withSchedule(CronScheduleBuilder.cronSchedule("0 * * * * ?"))
+                .build();
+//        List<Trigger> triggers = scheduler.get(jobDetail.getKey());
+//        scheduler.rescheduleJob(triggers.get(0).getKey(), trigger);
+//        scheduler.deleteJob(jobDetail.getKey());
 
         // Schedule the job with the trigger
         scheduler.scheduleJob(jobDetail, trigger);
+        scheduler.scheduleJob(jobDetail, trigger1);
 //        scheduler.
         // Start the scheduler
         scheduler.start();
@@ -166,7 +173,7 @@ public class EmailJobSchedulerController {
     }
 
     @GetMapping("/calendar")
-    private void cal()  throws SchedulerException{
+    private void cal() throws SchedulerException {
 //        SchedulerFactory schedulerFactory = new StdSchedulerFactory();
 //        Scheduler scheduler = schedulerFactory.getScheduler("calendar");
 //        Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler();
@@ -200,7 +207,7 @@ public class EmailJobSchedulerController {
     }
 
     @GetMapping("/custom")
-    private void custom()  throws SchedulerException{
+    private void custom() throws SchedulerException {
 //        SchedulerFactory schedulerFactory = new StdSchedulerFactory();
 //        Scheduler scheduler = schedulerFactory.getScheduler("calendar");
 //        Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler();
@@ -223,16 +230,16 @@ public class EmailJobSchedulerController {
     }
 
     @GetMapping("/pause")
-    private void pause()  throws SchedulerException{
+    private void pause() throws SchedulerException {
 //        scheduler.pauseTriggers(GroupMatcher.triggerGroupEquals("group1"));
         scheduler.resumeTriggers(GroupMatcher.triggerGroupEquals("group1"));
     }
 
     @GetMapping("/sim")
-    private void triggerExample()  throws SchedulerException{
+    private void triggerExample() throws SchedulerException {
         JobDetail jobDetail = JobBuilder.newJob(EmailJob.class)
-            .withIdentity("triggerExample", "group1")
-            .build();
+                .withIdentity("triggerExample", "group1")
+                .build();
 
         SimpleScheduleBuilder scheduleBuilder = SimpleScheduleBuilder.simpleSchedule()
                 .withIntervalInSeconds(10)
