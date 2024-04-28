@@ -3,6 +3,7 @@ package com.example.quartzdemo.controller;
 import com.example.quartzdemo.job.EmailJob;
 import com.example.quartzdemo.payload.ScheduleEmailRequest;
 import com.example.quartzdemo.payload.ScheduleEmailResponse;
+import com.example.quartzdemo.scheduler.SchedulerManagement;
 import com.example.quartzdemo.trigger.CustomTrigger;
 import org.quartz.*;
 import org.quartz.impl.calendar.AnnualCalendar;
@@ -27,6 +28,9 @@ import java.util.*;
 @RestController
 public class EmailJobSchedulerController {
     private static final Logger logger = LoggerFactory.getLogger(EmailJobSchedulerController.class);
+
+    @Autowired
+    private SchedulerManagement schedulerManagement;
 
     @Autowired
     private Scheduler scheduler;
@@ -165,7 +169,7 @@ public class EmailJobSchedulerController {
 
         // Schedule the job with the trigger
         scheduler.scheduleJob(jobDetail, trigger);
-        scheduler.scheduleJob(jobDetail, trigger1);
+//        scheduler.scheduleJob(jobDetail, trigger1);
 //        scheduler.
         // Start the scheduler
         scheduler.start();
@@ -230,9 +234,16 @@ public class EmailJobSchedulerController {
     }
 
     @GetMapping("/pause")
-    private void pause() throws SchedulerException {
-//        scheduler.pauseTriggers(GroupMatcher.triggerGroupEquals("group1"));
-        scheduler.resumeTriggers(GroupMatcher.triggerGroupEquals("group1"));
+    private void pause(String nameId, String groupId, Integer type) throws SchedulerException {
+        if (type == 1) {
+            scheduler.resumeTriggers(GroupMatcher.triggerGroupEquals(groupId));
+        } else if (type == 2) {
+            scheduler.pauseTriggers(GroupMatcher.triggerGroupEquals(groupId));
+        } else if (type == 3) {
+            schedulerManagement.pauseTrigger(nameId, groupId);
+        } else {
+            schedulerManagement.resumeTrigger(nameId, groupId);
+        }
     }
 
     @GetMapping("/sim")
